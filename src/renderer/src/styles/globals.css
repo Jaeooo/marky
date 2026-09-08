@@ -1,13 +1,10 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+/* real @import rules must come before everything else */
 @import 'katex/dist/katex.min.css';
 @import 'highlight.js/styles/github.css';
 
-@media (prefers-color-scheme: dark) {
-  /* highlight.js github-dark, applied when the doc is in dark mode */
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   color-scheme: light dark;
