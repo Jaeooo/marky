@@ -1,7 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme, Menu } from 'electron'
 import type { MenuItemConstructorOptions } from 'electron'
-import { join } from 'path'
+import { basename, join } from 'path'
 import { readFile } from 'fs/promises'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { watch, type FSWatcher } from 'chokidar'
 
 const MD_EXT = /\.(md|markdown|mdown|mkd|mkdn|mdx|txt)$/i
@@ -10,6 +11,59 @@ const MD_EXT = /\.(md|markdown|mdown|mkd|mkdn|mdx|txt)$/i
 const watchers = new Map<number, FSWatcher>()
 /** Files handed to us (Finder "open with", CLI args) before the app is ready. */
 const pendingOpenPaths: string[] = []
+
+// ─── recent files ────────────────────────────────────────────────────────────
+
+export interface RecentEntry {
+  path: string
+  name: string
+  openedAt: number
+}
+
+const RECENT_LIMIT = 15
+let recentFilePath = ''
+let recent: RecentEntry[] = []
+
+function loadRecent(): void {
+  recentFilePath = join(app.getPath('userData'), 'recent.json')
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(recentFilePath, 'utf-8'))
+    recent = Array.isArray(parsed) ? (parsed as RecentEntry[]) : []
+  } catch {
+    recent = []
+  }
+}
+
+function persistRecent(): void {
+  try {
+    writeFileSync(recentFilePath, JSON.stringify(recent, null, 2))
+  } catch {
+    /* best effort */
+  }
+}
+
+function listRecent(): RecentEntry[] {
+  const present = recent.filter((e) => existsSync(e.path))
+  if (present.length !== recent.length) {
+    recent = present
+    persistRecent()
+  }
+  return recent
+}
+
+function addRecent(filePath: string): void {
+  recent = [
+    { path: filePath, name: basename(filePath), openedAt: Date.now() },
+    ...recent.filter((e) => e.path !== filePath)
+  ].slice(0, RECENT_LIMIT)
+  persistRecent()
+  app.addRecentDocument(filePath)
+  broadcast('recent:updated', recent)
+}
+
+function broadcast(channel: string, payload: unknown): void {
+  for (const win of BrowserWindow.getAllWindows()) win.webContents.send(channel, payload)
+}
 
 function watchFile(win: BrowserWindow, filePath: string): void {
   void watchers.get(win.id)?.close()
@@ -30,7 +84,7 @@ async function loadFile(win: BrowserWindow, filePath: string): Promise<void> {
     const content = await readFile(filePath, 'utf-8')
     win.webContents.send('file:opened', { path: filePath, content })
     watchFile(win, filePath)
-    app.addRecentDocument(filePath)
+    addRecent(filePath)
   } catch (err) {
     dialog.showErrorBox('열기 실패', String(err))
   }
@@ -203,6 +257,7 @@ function buildMenu(): Menu {
 
 app.whenReady().then(() => {
   nativeTheme.themeSource = 'system'
+  loadRecent()
   Menu.setApplicationMenu(buildMenu())
 
   if (pendingOpenPaths.length > 0) {
@@ -215,8 +270,19 @@ app.whenReady().then(() => {
     const content = await readFile(p, 'utf-8')
     const win = BrowserWindow.fromWebContents(e.sender)
     if (win) watchFile(win, p)
-    app.addRecentDocument(p)
+    addRecent(p)
     return { path: p, content }
+  })
+
+  ipcMain.handle('recent:list', () => listRecent())
+  ipcMain.handle('recent:open', (e, p: string) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    return win ? loadFile(win, p) : undefined
+  })
+  ipcMain.handle('recent:clear', () => {
+    recent = []
+    persistRecent()
+    broadcast('recent:updated', recent)
   })
 
   ipcMain.handle('theme:get', () => nativeTheme.shouldUseDarkColors)
