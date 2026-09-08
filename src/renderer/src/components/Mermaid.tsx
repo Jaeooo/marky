@@ -1,32 +1,53 @@
 import { useEffect, useId, useState } from 'react'
 
-let mermaidLoaded: Promise<typeof import('mermaid').default> | null = null
+let mermaidMod: Promise<typeof import('mermaid').default> | null = null
+const loadMermaid = (): Promise<typeof import('mermaid').default> =>
+  (mermaidMod ??= import('mermaid').then((m) => m.default))
 
-function loadMermaid(): Promise<typeof import('mermaid').default> {
-  if (!mermaidLoaded) {
-    mermaidLoaded = import('mermaid').then(({ default: mermaid }) => {
-      mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' })
-      return mermaid
-    })
-  }
-  return mermaidLoaded
+/** Track the app's dark-mode class so diagrams re-render on theme toggle. */
+function useIsDark(): boolean {
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setDark(document.documentElement.classList.contains('dark'))
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+  return dark
 }
 
 export default function Mermaid({ chart }: { chart: string }): JSX.Element {
+  const dark = useIsDark()
   const id = useId().replace(/[^a-zA-Z0-9]/g, '')
-  const [svg, setSvg] = useState<string>('')
-  const [error, setError] = useState<string>('')
+  const [svg, setSvg] = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let cancelled = false
     loadMermaid()
-      .then((mermaid) => mermaid.render(`m-${id}`, chart))
-      .then(({ svg }) => !cancelled && setSvg(svg))
-      .catch((e) => !cancelled && setError(String(e)))
+      .then((mermaid) => {
+        mermaid.initialize({
+          startOnLoad: false,
+          securityLevel: 'strict',
+          theme: dark ? 'dark' : 'default'
+        })
+        return mermaid.render(`m-${id}-${dark ? 'd' : 'l'}`, chart)
+      })
+      .then(({ svg }) => {
+        if (cancelled) return
+        setSvg(svg)
+        setError('')
+      })
+      .catch((e) => {
+        if (cancelled) return
+        setSvg('')
+        setError(String(e))
+      })
     return () => {
       cancelled = true
     }
-  }, [chart, id])
+  }, [chart, id, dark])
 
   if (error) {
     return <pre className="text-sm text-red-500">{error}</pre>
