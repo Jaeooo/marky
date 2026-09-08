@@ -29,7 +29,7 @@ export default function Mermaid({ chart }: { chart: string }): JSX.Element {
   }, [chart, id])
 
   if (error) {
-    return <pre className="text-sm text-danger">{error}</pre>
+    return <pre className="text-sm text-red-500">{error}</pre>
   }
   return <div className="my-4 flex justify-center" dangerouslySetInnerHTML={{ __html: svg }} />
 }

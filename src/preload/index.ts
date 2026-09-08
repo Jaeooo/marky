@@ -8,9 +8,7 @@ export interface FilePayload {
 type Unsubscribe = () => void
 
 const api = {
-  openFileDialog: (): Promise<void> => ipcRenderer.invoke('dialog:openFile'),
   readFile: (path: string): Promise<FilePayload> => ipcRenderer.invoke('file:read', path),
-  toggleTheme: (): Promise<boolean> => ipcRenderer.invoke('theme:toggle'),
   getTheme: (): Promise<boolean> => ipcRenderer.invoke('theme:get'),
 
   onFileOpened: (cb: (data: FilePayload) => void): Unsubscribe => {

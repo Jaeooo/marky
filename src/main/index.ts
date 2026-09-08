@@ -1,4 +1,5 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme, Menu } from 'electron'
+import type { MenuItemConstructorOptions } from 'electron'
 import { join } from 'path'
 import { readFile } from 'fs/promises'
 import { watch, type FSWatcher } from 'chokidar'
@@ -44,6 +45,74 @@ async function openFileDialog(win: BrowserWindow): Promise<void> {
   if (!canceled && filePaths[0]) await loadFile(win, filePaths[0])
 }
 
+function toggleTheme(): void {
+  nativeTheme.themeSource = nativeTheme.shouldUseDarkColors ? 'light' : 'dark'
+}
+
+function buildMenu(): Menu {
+  const isMac = process.platform === 'darwin'
+
+  const template: MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' as const },
+              { type: 'separator' as const },
+              { role: 'hide' as const },
+              { role: 'hideOthers' as const },
+              { role: 'unhide' as const },
+              { type: 'separator' as const },
+              { role: 'quit' as const }
+            ]
+          }
+        ]
+      : []),
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Open…',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => mainWindow && openFileDialog(mainWindow)
+        },
+        { type: 'separator' },
+        isMac ? { role: 'close' } : { role: 'quit' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [{ role: 'copy' }, { role: 'selectAll' }]
+    },
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Toggle Theme',
+          accelerator: 'CmdOrCtrl+Shift+L',
+          click: () => toggleTheme()
+        },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+        ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' as const }])
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: isMac
+        ? [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }]
+        : [{ role: 'minimize' }, { role: 'close' }]
+    }
+  ]
+
+  return Menu.buildFromTemplate(template)
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 960,
@@ -51,7 +120,7 @@ function createWindow(): void {
     minWidth: 480,
     minHeight: 360,
     show: false,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#18181b' : '#ffffff',
     webPreferences: {
@@ -107,9 +176,8 @@ if (!app.requestSingleInstanceLock()) {
 
 app.whenReady().then(() => {
   nativeTheme.themeSource = 'system'
+  Menu.setApplicationMenu(buildMenu())
   createWindow()
-
-  ipcMain.handle('dialog:openFile', () => mainWindow && openFileDialog(mainWindow))
 
   ipcMain.handle('file:read', async (_e, p: string) => {
     const content = await readFile(p, 'utf-8')
@@ -118,10 +186,6 @@ app.whenReady().then(() => {
     return { path: p, content }
   })
 
-  ipcMain.handle('theme:toggle', () => {
-    nativeTheme.themeSource = nativeTheme.shouldUseDarkColors ? 'light' : 'dark'
-    return nativeTheme.shouldUseDarkColors
-  })
   ipcMain.handle('theme:get', () => nativeTheme.shouldUseDarkColors)
 
   nativeTheme.on('updated', () => {
