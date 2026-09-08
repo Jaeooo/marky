@@ -1,0 +1,53 @@
+appId: com.jaewookim.marky
+productName: Marky
+copyright: Copyright © 2026 jaewookim
+
+directories:
+  buildResources: build
+
+files:
+  - out/**
+  - resources/**
+  - package.json
+
+asarUnpack:
+  - resources/**
+
+fileAssociations:
+  - ext: md
+    name: Markdown Document
+    role: Viewer
+  - ext: markdown
+    name: Markdown Document
+    role: Viewer
+  - ext: mdx
+    name: MDX Document
+    role: Viewer
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  extendInfo:
+    CFBundleDocumentTypes:
+      - CFBundleTypeName: Markdown Document
+        CFBundleTypeRole: Viewer
+        LSHandlerRank: Alternate
+        LSItemContentTypes:
+          - net.daringfireball.markdown
+          - public.plain-text
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+publish: null

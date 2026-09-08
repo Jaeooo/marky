@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import 'katex/dist/katex.min.css';
+@import 'highlight.js/styles/github.css';
+
+@media (prefers-color-scheme: dark) {
+  /* highlight.js github-dark, applied when the doc is in dark mode */
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Pretendard, 'Apple SD Gothic Neo', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+}
+
+/* dark code theme override */
+.dark .hljs {
+  background: transparent;
+  color: #c9d1d9;
+}
+.dark .hljs-comment,
+.dark .hljs-quote {
+  color: #8b949e;
+}
+.dark .hljs-keyword,
+.dark .hljs-selector-tag {
+  color: #ff7b72;
+}
+.dark .hljs-string,
+.dark .hljs-attr {
+  color: #a5d6ff;
+}
+.dark .hljs-title,
+.dark .hljs-name,
+.dark .hljs-type {
+  color: #d2a8ff;
+}
+.dark .hljs-number,
+.dark .hljs-literal {
+  color: #79c0ff;
+}
+
+/* anchor links injected by rehype-autolink-headings */
+.prose :where(h1, h2, h3, h4, h5, h6) a {
+  color: inherit;
+  text-decoration: none;
+}
