@@ -14,7 +14,8 @@ import Mermaid from './Mermaid'
 const remarkPlugins = [remarkGfm, remarkMath]
 const rehypePlugins = [
   rehypeRaw,
-  rehypeKatex,
+  // KaTeX: render $…$ / $$…$$; show broken math in red instead of throwing
+  [rehypeKatex, { errorColor: '#ef4444', strict: false, throwOnError: false }],
   [rehypeHighlight, { detect: true, ignoreMissing: true }],
   rehypeSlug,
   [rehypeAutolinkHeadings, { behavior: 'wrap' }]
