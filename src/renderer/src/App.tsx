@@ -12,16 +12,18 @@ function basename(p: string): string {
   return p.split(/[/\\]/).pop() ?? p
 }
 
-// macOS uses a hidden-inset title bar, so we draw our own thin strip for the
-// traffic-light spacing + file name. Windows/Linux keep the native title bar.
+// macOS uses a hidden-inset title bar, so the strip needs to clear the
+// traffic lights. Other platforms keep their native title bar above it.
 const isMac = navigator.platform.toLowerCase().includes('mac')
 
 export default function App(): JSX.Element {
   const [file, setFile] = useState<OpenFile | null>(null)
+  const [dark, setDark] = useState(false)
   const [dragging, setDragging] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const applyTheme = useCallback((isDark: boolean) => {
+    setDark(isDark)
     document.documentElement.classList.toggle('dark', isDark)
   }, [])
 
@@ -46,6 +48,8 @@ export default function App(): JSX.Element {
     document.title = file ? basename(file.path) : 'Marky'
   }, [file])
 
+  const toggleTheme = useCallback(() => void window.marky.toggleTheme(), [])
+
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setDragging(false)
@@ -63,7 +67,12 @@ export default function App(): JSX.Element {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      {isMac && <Toolbar title={file ? basename(file.path) : 'Marky'} />}
+      <Toolbar
+        title={file ? basename(file.path) : 'Marky'}
+        dark={dark}
+        isMac={isMac}
+        onToggleTheme={toggleTheme}
+      />
 
       <div ref={scrollRef} className="relative flex-1 overflow-y-auto">
         {file ? <MarkdownView source={file.content} /> : <EmptyState />}

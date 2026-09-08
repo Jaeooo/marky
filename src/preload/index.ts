@@ -10,6 +10,7 @@ type Unsubscribe = () => void
 const api = {
   readFile: (path: string): Promise<FilePayload> => ipcRenderer.invoke('file:read', path),
   getTheme: (): Promise<boolean> => ipcRenderer.invoke('theme:get'),
+  toggleTheme: (): Promise<boolean> => ipcRenderer.invoke('theme:toggle'),
 
   onFileOpened: (cb: (data: FilePayload) => void): Unsubscribe => {
     const listener = (_e: unknown, data: FilePayload): void => cb(data)

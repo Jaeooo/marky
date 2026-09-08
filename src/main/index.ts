@@ -187,6 +187,10 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('theme:get', () => nativeTheme.shouldUseDarkColors)
+  ipcMain.handle('theme:toggle', () => {
+    toggleTheme()
+    return nativeTheme.shouldUseDarkColors
+  })
 
   nativeTheme.on('updated', () => {
     mainWindow?.webContents.send('theme:updated', nativeTheme.shouldUseDarkColors)
