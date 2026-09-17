@@ -9,6 +9,10 @@ files:
   - out/**
   - resources/**
   - package.json
+  # pdfjs-dist's optional Node canvas backend — unused (we render via the
+  # browser Canvas API), pure dead weight, and its native binary breaks
+  # codesigning.
+  - '!node_modules/@napi-rs/**'
 
 asarUnpack:
   - resources/**
@@ -22,6 +26,9 @@ fileAssociations:
     role: Viewer
   - ext: mdx
     name: MDX Document
+    role: Viewer
+  - ext: pdf
+    name: PDF Document
     role: Viewer
 
 mac:
@@ -39,6 +46,11 @@ mac:
         LSItemContentTypes:
           - net.daringfireball.markdown
           - public.plain-text
+      - CFBundleTypeName: PDF Document
+        CFBundleTypeRole: Viewer
+        LSHandlerRank: Alternate
+        LSItemContentTypes:
+          - com.adobe.pdf
 
 win:
   target:

@@ -2,10 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Toolbar from './components/Toolbar'
 import EmptyState from './components/EmptyState'
 import MarkdownView from './components/MarkdownView'
+import PdfView from './components/PdfView'
 
 interface OpenFile {
   path: string
   content: string
+}
+
+interface OpenPdf {
+  path: string
+  data: Uint8Array
 }
 
 function basename(p: string): string {
@@ -18,6 +24,7 @@ const isMac = navigator.platform.toLowerCase().includes('mac')
 
 export default function App(): JSX.Element {
   const [file, setFile] = useState<OpenFile | null>(null)
+  const [pdf, setPdf] = useState<OpenPdf | null>(null)
   const [dark, setDark] = useState(false)
   const [dragging, setDragging] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -35,18 +42,31 @@ export default function App(): JSX.Element {
   useEffect(() => {
     const offOpened = window.marky.onFileOpened((data) => {
       setFile(data)
+      setPdf(null)
       scrollRef.current?.scrollTo({ top: 0 })
     })
     const offChanged = window.marky.onFileChanged((data) => setFile(data))
+    const offClosed = window.marky.onFileClosed(() => {
+      setFile(null)
+      setPdf(null)
+    })
+    const offPdf = window.marky.onPdfOpened((data) => {
+      setPdf(data)
+      setFile(null)
+    })
     return () => {
       offOpened()
       offChanged()
+      offClosed()
+      offPdf()
     }
   }, [])
 
+  const title = pdf ? basename(pdf.path) : file ? basename(file.path) : 'Marky'
+
   useEffect(() => {
-    document.title = file ? basename(file.path) : 'Marky'
-  }, [file])
+    document.title = title
+  }, [title])
 
   const toggleTheme = useCallback(() => void window.marky.toggleTheme(), [])
 
@@ -54,7 +74,7 @@ export default function App(): JSX.Element {
     e.preventDefault()
     setDragging(false)
     const dropped = e.dataTransfer.files[0] as (File & { path?: string }) | undefined
-    if (dropped?.path) void window.marky.readFile(dropped.path).then(setFile)
+    if (dropped?.path) void window.marky.openPath(dropped.path)
   }, [])
 
   return (
@@ -67,19 +87,23 @@ export default function App(): JSX.Element {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      <Toolbar
-        title={file ? basename(file.path) : 'Marky'}
-        dark={dark}
-        isMac={isMac}
-        onToggleTheme={toggleTheme}
-      />
+      <Toolbar title={title} dark={dark} isMac={isMac} onToggleTheme={toggleTheme} />
 
-      <div ref={scrollRef} className="relative flex-1 overflow-y-auto">
-        {file ? <MarkdownView source={file.content} /> : <EmptyState />}
+      <div
+        ref={scrollRef}
+        className={`relative flex-1 ${pdf ? 'overflow-hidden' : 'overflow-y-auto'}`}
+      >
+        {pdf ? (
+          <PdfView data={pdf.data} />
+        ) : file ? (
+          <MarkdownView source={file.content} />
+        ) : (
+          <EmptyState />
+        )}
 
         {dragging && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center border-2 border-dashed border-indigo-400 bg-indigo-50/70 text-lg font-medium text-indigo-600 dark:bg-indigo-950/40">
-            여기에 마크다운 파일을 놓으세요
+            여기에 파일을 놓으세요
           </div>
         )}
       </div>

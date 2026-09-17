@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "chokidar": "^4.0.3",
-    "electron-updater": "^6.3.9"
+    "electron-updater": "^6.3.9",
+    "pdfjs-dist": "^4.10.38"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",

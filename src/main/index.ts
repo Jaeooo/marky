@@ -5,10 +5,13 @@ import { readFile } from 'fs/promises'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { watch, type FSWatcher } from 'chokidar'
 
-const MD_EXT = /\.(md|markdown|mdown|mkd|mkdn|mdx|txt)$/i
+const PDF_EXT = /\.pdf$/i
+const OPEN_EXT = /\.(md|markdown|mdown|mkd|mkdn|mdx|txt|pdf)$/i
 
-/** One file watcher per window, keyed by BrowserWindow id. */
+/** One markdown/text file watcher per window, keyed by BrowserWindow id. */
 const watchers = new Map<number, FSWatcher>()
+/** Windows that currently have any document open (markdown or PDF). */
+const openDocs = new Set<number>()
 /** Files handed to us (Finder "open with", CLI args) before the app is ready. */
 const pendingOpenPaths: string[] = []
 
@@ -79,11 +82,24 @@ function watchFile(win: BrowserWindow, filePath: string): void {
   watchers.set(win.id, watcher)
 }
 
+// ─── opening files ──────────────────────────────────────────────────────────
+
 async function loadFile(win: BrowserWindow, filePath: string): Promise<void> {
   try {
+    if (PDF_EXT.test(filePath)) {
+      void watchers.get(win.id)?.close()
+      watchers.delete(win.id)
+      const data = await readFile(filePath)
+      win.webContents.send('file:opened-pdf', { path: filePath, data })
+      openDocs.add(win.id)
+      addRecent(filePath)
+      return
+    }
+
     const content = await readFile(filePath, 'utf-8')
     win.webContents.send('file:opened', { path: filePath, content })
     watchFile(win, filePath)
+    openDocs.add(win.id)
     addRecent(filePath)
   } catch (err) {
     dialog.showErrorBox('열기 실패', String(err))
@@ -95,10 +111,27 @@ async function openFileDialog(win: BrowserWindow): Promise<void> {
     properties: ['openFile'],
     filters: [
       { name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd', 'mdx'] },
+      { name: 'PDF', extensions: ['pdf'] },
       { name: 'All Files', extensions: ['*'] }
     ]
   })
   if (!canceled && filePaths[0]) await loadFile(win, filePaths[0])
+}
+
+/**
+ * Cmd/Ctrl+W: if the window has a file open, close the document and drop
+ * back to the home screen (recent files) — keep the window itself around.
+ * Only close the actual OS window once it's already at the home screen.
+ */
+function closeOrHome(win: BrowserWindow): void {
+  if (openDocs.has(win.id)) {
+    void watchers.get(win.id)?.close()
+    watchers.delete(win.id)
+    openDocs.delete(win.id)
+    win.webContents.send('file:closed')
+  } else {
+    win.close()
+  }
 }
 
 function toggleTheme(): void {
@@ -133,6 +166,7 @@ function createWindow(filePath?: string): BrowserWindow {
   win.on('closed', () => {
     void watchers.get(win.id)?.close()
     watchers.delete(win.id)
+    openDocs.delete(win.id)
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -152,8 +186,9 @@ function createWindow(filePath?: string): BrowserWindow {
 /** Open a file coming from the OS (Finder / CLI) — one window per document. */
 function openExternalFile(filePath: string): void {
   const focused = BrowserWindow.getFocusedWindow()
+  const focusedIsEmpty = focused && !openDocs.has(focused.id)
   // reuse a brand-new empty window if that's all we have, else spawn one
-  if (focused && !watchers.has(focused.id)) void loadFile(focused, filePath)
+  if (focused && focusedIsEmpty) void loadFile(focused, filePath)
   else createWindow(filePath)
 }
 
@@ -165,7 +200,7 @@ app.on('open-file', (event, path) => {
 })
 
 // Windows / Linux: file passed as launch argument
-const argvPath = process.argv.slice(1).find((a) => MD_EXT.test(a))
+const argvPath = process.argv.slice(1).find((a) => OPEN_EXT.test(a))
 if (argvPath) pendingOpenPaths.push(argvPath)
 
 // single instance — route a 2nd launch's file into this process
@@ -173,7 +208,7 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   app.on('second-instance', (_e, argv) => {
-    const p = argv.slice(1).find((a) => MD_EXT.test(a))
+    const p = argv.slice(1).find((a) => OPEN_EXT.test(a))
     if (p) {
       openExternalFile(p)
     } else {
@@ -220,7 +255,15 @@ function buildMenu(): Menu {
           click: () => openFileDialog(focusedOrNewWindow())
         },
         { type: 'separator' },
-        isMac ? { role: 'close' } : { role: 'quit' }
+        {
+          label: 'Close',
+          accelerator: 'CmdOrCtrl+W',
+          click: () => {
+            const win = BrowserWindow.getFocusedWindow()
+            if (win) closeOrHome(win)
+          }
+        },
+        ...(isMac ? [] : [{ type: 'separator' as const }, { role: 'quit' as const, label: 'Exit' }])
       ]
     },
     {
@@ -266,12 +309,9 @@ app.whenReady().then(() => {
     createWindow()
   }
 
-  ipcMain.handle('file:read', async (e, p: string) => {
-    const content = await readFile(p, 'utf-8')
+  ipcMain.handle('file:open', async (e, p: string) => {
     const win = BrowserWindow.fromWebContents(e.sender)
-    if (win) watchFile(win, p)
-    addRecent(p)
-    return { path: p, content }
+    if (win) await loadFile(win, p)
   })
 
   ipcMain.handle('recent:list', () => listRecent())
@@ -305,5 +345,6 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   for (const w of watchers.values()) void w.close()
   watchers.clear()
+  openDocs.clear()
   if (process.platform !== 'darwin') app.quit()
 })

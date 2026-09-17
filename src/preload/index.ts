@@ -5,6 +5,11 @@ export interface FilePayload {
   content: string
 }
 
+export interface PdfPayload {
+  path: string
+  data: Uint8Array
+}
+
 export interface RecentEntry {
   path: string
   name: string
@@ -14,7 +19,8 @@ export interface RecentEntry {
 type Unsubscribe = () => void
 
 const api = {
-  readFile: (path: string): Promise<FilePayload> => ipcRenderer.invoke('file:read', path),
+  /** Ask main to open a path (any supported type) into this window. */
+  openPath: (path: string): Promise<void> => ipcRenderer.invoke('file:open', path),
   getTheme: (): Promise<boolean> => ipcRenderer.invoke('theme:get'),
   toggleTheme: (): Promise<boolean> => ipcRenderer.invoke('theme:toggle'),
 
@@ -36,6 +42,16 @@ const api = {
     const listener = (_e: unknown, data: FilePayload): void => cb(data)
     ipcRenderer.on('file:changed', listener)
     return () => ipcRenderer.removeListener('file:changed', listener)
+  },
+  onFileClosed: (cb: () => void): Unsubscribe => {
+    const listener = (): void => cb()
+    ipcRenderer.on('file:closed', listener)
+    return () => ipcRenderer.removeListener('file:closed', listener)
+  },
+  onPdfOpened: (cb: (data: PdfPayload) => void): Unsubscribe => {
+    const listener = (_e: unknown, data: PdfPayload): void => cb(data)
+    ipcRenderer.on('file:opened-pdf', listener)
+    return () => ipcRenderer.removeListener('file:opened-pdf', listener)
   },
   onThemeUpdated: (cb: (dark: boolean) => void): Unsubscribe => {
     const listener = (_e: unknown, dark: boolean): void => cb(dark)
