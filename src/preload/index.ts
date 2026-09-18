@@ -67,6 +67,11 @@ const api = {
     const listener = (_e: unknown, dark: boolean): void => cb(dark)
     ipcRenderer.on('theme:updated', listener)
     return () => ipcRenderer.removeListener('theme:updated', listener)
+  },
+  onSidebarToggle: (cb: () => void): Unsubscribe => {
+    const listener = (): void => cb()
+    ipcRenderer.on('sidebar:toggle', listener)
+    return () => ipcRenderer.removeListener('sidebar:toggle', listener)
   }
 }
 

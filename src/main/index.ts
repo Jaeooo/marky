@@ -314,6 +314,11 @@ function buildMenu(): Menu {
       label: 'View',
       submenu: [
         {
+          label: 'Toggle Sidebar',
+          accelerator: 'CmdOrCtrl+B',
+          click: () => BrowserWindow.getFocusedWindow()?.webContents.send('sidebar:toggle')
+        },
+        {
           label: 'Toggle Theme',
           accelerator: 'CmdOrCtrl+Shift+L',
           click: () => toggleTheme()

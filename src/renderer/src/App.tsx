@@ -4,6 +4,9 @@ import EmptyState from './components/EmptyState'
 import MarkdownView from './components/MarkdownView'
 import PdfView from './components/PdfView'
 import HtmlView from './components/HtmlView'
+import Sidebar, { type Heading } from './components/Sidebar'
+
+const SIDEBAR_PREF_KEY = 'marky.sidebarOpen'
 
 interface OpenFile {
   path: string
@@ -34,6 +37,8 @@ export default function App(): JSX.Element {
   const [html, setHtml] = useState<OpenHtml | null>(null)
   const [dark, setDark] = useState(false)
   const [dragging, setDragging] = useState(false)
+  const [headings, setHeadings] = useState<Heading[]>([])
+  const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem(SIDEBAR_PREF_KEY) !== '0')
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const applyTheme = useCallback((isDark: boolean) => {
@@ -58,16 +63,19 @@ export default function App(): JSX.Element {
       setFile(null)
       setPdf(null)
       setHtml(null)
+      setHeadings([])
     })
     const offPdf = window.marky.onPdfOpened((data) => {
       setPdf(data)
       setFile(null)
       setHtml(null)
+      setHeadings([])
     })
     const offHtml = window.marky.onHtmlOpened((data) => {
       setHtml(data)
       setFile(null)
       setPdf(null)
+      setHeadings([])
     })
     return () => {
       offOpened()
@@ -76,6 +84,10 @@ export default function App(): JSX.Element {
       offPdf()
       offHtml()
     }
+  }, [])
+
+  useEffect(() => {
+    return window.marky.onSidebarToggle(() => setSidebarOpen((v) => !v))
   }, [])
 
   const title = pdf
@@ -90,7 +102,16 @@ export default function App(): JSX.Element {
     document.title = title
   }, [title])
 
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_PREF_KEY, sidebarOpen ? '1' : '0')
+  }, [sidebarOpen])
+
   const toggleTheme = useCallback(() => void window.marky.toggleTheme(), [])
+  const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), [])
+  const handleHeadings = useCallback((h: Heading[]) => setHeadings(h), [])
+  const scrollToHeading = useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -109,27 +130,41 @@ export default function App(): JSX.Element {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      <Toolbar title={title} dark={dark} isMac={isMac} onToggleTheme={toggleTheme} />
+      <Toolbar
+        title={title}
+        dark={dark}
+        isMac={isMac}
+        onToggleTheme={toggleTheme}
+        showSidebarToggle={headings.length > 0}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={toggleSidebar}
+      />
 
-      <div
-        ref={scrollRef}
-        className={`relative flex-1 ${pdf || html ? 'overflow-hidden' : 'overflow-y-auto'}`}
-      >
-        {pdf ? (
-          <PdfView data={pdf.data} />
-        ) : html ? (
-          <HtmlView url={html.url} />
-        ) : file ? (
-          <MarkdownView source={file.content} />
-        ) : (
-          <EmptyState />
+      <div className="flex flex-1 overflow-hidden">
+        {sidebarOpen && headings.length > 0 && (
+          <Sidebar headings={headings} onSelect={scrollToHeading} />
         )}
 
-        {dragging && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center border-2 border-dashed border-indigo-400 bg-indigo-50/70 text-lg font-medium text-indigo-600 dark:bg-indigo-950/40">
-            여기에 파일을 놓으세요
-          </div>
-        )}
+        <div
+          ref={scrollRef}
+          className={`relative flex-1 ${pdf || html ? 'overflow-hidden' : 'overflow-y-auto'}`}
+        >
+          {pdf ? (
+            <PdfView data={pdf.data} />
+          ) : html ? (
+            <HtmlView url={html.url} />
+          ) : file ? (
+            <MarkdownView source={file.content} onHeadings={handleHeadings} />
+          ) : (
+            <EmptyState />
+          )}
+
+          {dragging && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center border-2 border-dashed border-indigo-400 bg-indigo-50/70 text-lg font-medium text-indigo-600 dark:bg-indigo-950/40">
+              여기에 파일을 놓으세요
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
