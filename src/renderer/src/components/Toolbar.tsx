@@ -4,21 +4,31 @@ interface Props {
   isMac: boolean
   onToggleTheme: () => void
   showSidebarToggle: boolean
-  sidebarOpen: boolean
+  reserveLeftInset: boolean
   onToggleSidebar: () => void
 }
 
-function SidebarIcon({ active }: { active: boolean }): JSX.Element {
+export function SidebarIcon({ active }: { active: boolean }): JSX.Element {
   return (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
-      <rect x="1.5" y="2.5" width="5" height="11" rx="1.5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.3" />
+      <rect
+        x="1.5"
+        y="2.5"
+        width="5"
+        height="11"
+        rx="1.5"
+        fill={active ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth="1.3"
+      />
     </svg>
   )
 }
 
 /**
- * Thin draggable strip: sidebar toggle, current file name, plus a
+ * Thin draggable strip: sidebar toggle (only when the sidebar isn't already
+ * on screen owning that corner — see Sidebar.tsx), current file name, plus a
  * light/dark toggle. File opening lives in the native menu (File → Open).
  */
 export default function Toolbar({
@@ -27,7 +37,7 @@ export default function Toolbar({
   isMac,
   onToggleTheme,
   showSidebarToggle,
-  sidebarOpen,
+  reserveLeftInset,
   onToggleSidebar
 }: Props): JSX.Element {
   return (
@@ -35,18 +45,21 @@ export default function Toolbar({
       className="flex h-10 shrink-0 items-center border-b border-zinc-200 px-2 dark:border-zinc-800"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
-      {/* keep the macOS traffic lights clear */}
-      <div className={`flex shrink-0 items-center ${isMac ? 'pl-16' : 'pl-1'}`}>
+      {/* When the sidebar isn't showing, this strip owns the corner and
+          needs to clear the macOS traffic lights. */}
+      <div
+        className={`flex shrink-0 items-center ${reserveLeftInset ? (isMac ? 'pl-16' : 'pl-1') : ''}`}
+      >
         {showSidebarToggle && (
           <button
             type="button"
             onClick={onToggleSidebar}
-            aria-label={sidebarOpen ? '사이드바 닫기' : '사이드바 열기'}
-            title={sidebarOpen ? '사이드바 닫기 (⌘B)' : '사이드바 열기 (⌘B)'}
+            aria-label="사이드바 열기"
+            title="사이드바 열기 (⌘B)"
             className="rounded p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
-            <SidebarIcon active={sidebarOpen} />
+            <SidebarIcon active={false} />
           </button>
         )}
       </div>

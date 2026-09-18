@@ -120,9 +120,11 @@ export default function App(): JSX.Element {
     if (dropped?.path) void window.marky.openPath(dropped.path)
   }, [])
 
+  const showSidebar = sidebarOpen && headings.length > 0
+
   return (
     <div
-      className="flex h-screen flex-col bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"
+      className="flex h-screen bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"
       onDragOver={(e) => {
         e.preventDefault()
         setDragging(true)
@@ -130,20 +132,20 @@ export default function App(): JSX.Element {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      <Toolbar
-        title={title}
-        dark={dark}
-        isMac={isMac}
-        onToggleTheme={toggleTheme}
-        showSidebarToggle={headings.length > 0}
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={toggleSidebar}
-      />
+      {showSidebar && (
+        <Sidebar headings={headings} onSelect={scrollToHeading} onToggle={toggleSidebar} isMac={isMac} />
+      )}
 
-      <div className="flex flex-1 overflow-hidden">
-        {sidebarOpen && headings.length > 0 && (
-          <Sidebar headings={headings} onSelect={scrollToHeading} />
-        )}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Toolbar
+          title={title}
+          dark={dark}
+          isMac={isMac}
+          onToggleTheme={toggleTheme}
+          showSidebarToggle={!showSidebar && headings.length > 0}
+          reserveLeftInset={!showSidebar}
+          onToggleSidebar={toggleSidebar}
+        />
 
         <div
           ref={scrollRef}
