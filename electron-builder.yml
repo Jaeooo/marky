@@ -30,6 +30,12 @@ fileAssociations:
   - ext: pdf
     name: PDF Document
     role: Viewer
+  - ext: html
+    name: HTML Document
+    role: Viewer
+  - ext: htm
+    name: HTML Document
+    role: Viewer
 
 mac:
   category: public.app-category.productivity
@@ -51,6 +57,11 @@ mac:
         LSHandlerRank: Alternate
         LSItemContentTypes:
           - com.adobe.pdf
+      - CFBundleTypeName: HTML Document
+        CFBundleTypeRole: Viewer
+        LSHandlerRank: Alternate
+        LSItemContentTypes:
+          - public.html
 
 win:
   target:

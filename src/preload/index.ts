@@ -10,6 +10,11 @@ export interface PdfPayload {
   data: Uint8Array
 }
 
+export interface HtmlPayload {
+  path: string
+  url: string
+}
+
 export interface RecentEntry {
   path: string
   name: string
@@ -52,6 +57,11 @@ const api = {
     const listener = (_e: unknown, data: PdfPayload): void => cb(data)
     ipcRenderer.on('file:opened-pdf', listener)
     return () => ipcRenderer.removeListener('file:opened-pdf', listener)
+  },
+  onHtmlOpened: (cb: (data: HtmlPayload) => void): Unsubscribe => {
+    const listener = (_e: unknown, data: HtmlPayload): void => cb(data)
+    ipcRenderer.on('file:opened-html', listener)
+    return () => ipcRenderer.removeListener('file:opened-html', listener)
   },
   onThemeUpdated: (cb: (dark: boolean) => void): Unsubscribe => {
     const listener = (_e: unknown, dark: boolean): void => cb(dark)

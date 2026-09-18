@@ -3,6 +3,7 @@ import Toolbar from './components/Toolbar'
 import EmptyState from './components/EmptyState'
 import MarkdownView from './components/MarkdownView'
 import PdfView from './components/PdfView'
+import HtmlView from './components/HtmlView'
 
 interface OpenFile {
   path: string
@@ -12,6 +13,11 @@ interface OpenFile {
 interface OpenPdf {
   path: string
   data: Uint8Array
+}
+
+interface OpenHtml {
+  path: string
+  url: string
 }
 
 function basename(p: string): string {
@@ -25,6 +31,7 @@ const isMac = navigator.platform.toLowerCase().includes('mac')
 export default function App(): JSX.Element {
   const [file, setFile] = useState<OpenFile | null>(null)
   const [pdf, setPdf] = useState<OpenPdf | null>(null)
+  const [html, setHtml] = useState<OpenHtml | null>(null)
   const [dark, setDark] = useState(false)
   const [dragging, setDragging] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -43,26 +50,41 @@ export default function App(): JSX.Element {
     const offOpened = window.marky.onFileOpened((data) => {
       setFile(data)
       setPdf(null)
+      setHtml(null)
       scrollRef.current?.scrollTo({ top: 0 })
     })
     const offChanged = window.marky.onFileChanged((data) => setFile(data))
     const offClosed = window.marky.onFileClosed(() => {
       setFile(null)
       setPdf(null)
+      setHtml(null)
     })
     const offPdf = window.marky.onPdfOpened((data) => {
       setPdf(data)
       setFile(null)
+      setHtml(null)
+    })
+    const offHtml = window.marky.onHtmlOpened((data) => {
+      setHtml(data)
+      setFile(null)
+      setPdf(null)
     })
     return () => {
       offOpened()
       offChanged()
       offClosed()
       offPdf()
+      offHtml()
     }
   }, [])
 
-  const title = pdf ? basename(pdf.path) : file ? basename(file.path) : 'Marky'
+  const title = pdf
+    ? basename(pdf.path)
+    : html
+      ? basename(html.path)
+      : file
+        ? basename(file.path)
+        : 'Marky'
 
   useEffect(() => {
     document.title = title
@@ -91,10 +113,12 @@ export default function App(): JSX.Element {
 
       <div
         ref={scrollRef}
-        className={`relative flex-1 ${pdf ? 'overflow-hidden' : 'overflow-y-auto'}`}
+        className={`relative flex-1 ${pdf || html ? 'overflow-hidden' : 'overflow-y-auto'}`}
       >
         {pdf ? (
           <PdfView data={pdf.data} />
+        ) : html ? (
+          <HtmlView url={html.url} />
         ) : file ? (
           <MarkdownView source={file.content} />
         ) : (

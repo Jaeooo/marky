@@ -1,12 +1,19 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme, Menu } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme, Menu, session } from 'electron'
 import type { MenuItemConstructorOptions } from 'electron'
 import { basename, join } from 'path'
 import { readFile } from 'fs/promises'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { pathToFileURL } from 'url'
 import { watch, type FSWatcher } from 'chokidar'
 
 const PDF_EXT = /\.pdf$/i
-const OPEN_EXT = /\.(md|markdown|mdown|mkd|mkdn|mdx|txt|pdf)$/i
+const HTML_EXT = /\.html?$/i
+const OPEN_EXT = /\.(md|markdown|mdown|mkd|mkdn|mdx|txt|pdf|html?)$/i
+
+/** Session partition the sandboxed HTML <webview> renders under. Not
+ * "persist:"-prefixed, so it's in-memory only and gone when the app quits —
+ * opened HTML files get no cookies/storage that outlive the window. */
+const HTML_VIEW_PARTITION = 'html-viewer'
 
 /** One markdown/text file watcher per window, keyed by BrowserWindow id. */
 const watchers = new Map<number, FSWatcher>()
@@ -96,6 +103,18 @@ async function loadFile(win: BrowserWindow, filePath: string): Promise<void> {
       return
     }
 
+    if (HTML_EXT.test(filePath)) {
+      void watchers.get(win.id)?.close()
+      watchers.delete(win.id)
+      win.webContents.send('file:opened-html', {
+        path: filePath,
+        url: pathToFileURL(filePath).href
+      })
+      openDocs.add(win.id)
+      addRecent(filePath)
+      return
+    }
+
     const content = await readFile(filePath, 'utf-8')
     win.webContents.send('file:opened', { path: filePath, content })
     watchFile(win, filePath)
@@ -112,6 +131,7 @@ async function openFileDialog(win: BrowserWindow): Promise<void> {
     filters: [
       { name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd', 'mdx'] },
       { name: 'PDF', extensions: ['pdf'] },
+      { name: 'HTML', extensions: ['html', 'htm'] },
       { name: 'All Files', extensions: ['*'] }
     ]
   })
@@ -154,7 +174,8 @@ function createWindow(filePath?: string): BrowserWindow {
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#18181b' : '#ffffff',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      webviewTag: true
     }
   })
 
@@ -172,6 +193,25 @@ function createWindow(filePath?: string): BrowserWindow {
   win.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url)
     return { action: 'deny' }
+  })
+
+  // Lock down the HTML <webview>'s guest regardless of what the renderer
+  // requests — the renderer is our own code, but this is the real security
+  // boundary against a malicious document opened inside it.
+  win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    if (params.partition !== HTML_VIEW_PARTITION) {
+      event.preventDefault()
+      return
+    }
+    webPreferences.javascript = false
+    webPreferences.plugins = false
+    webPreferences.webSecurity = true
+    webPreferences.allowRunningInsecureContent = false
+    webPreferences.nodeIntegration = false
+    webPreferences.nodeIntegrationInSubFrames = false
+    webPreferences.contextIsolation = true
+    webPreferences.sandbox = true
+    delete webPreferences.preload
   })
 
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -298,10 +338,25 @@ function buildMenu(): Menu {
   return Menu.buildFromTemplate(template)
 }
 
+// Guests (opened HTML documents) never get to navigate, pop up windows, or
+// reach the network beyond the file they were opened from — JS is already
+// off via `will-attach-webview` above, but resource tags (<img>, <link>,
+// <iframe>) still fire real requests, so we cut those off at the protocol.
+app.on('web-contents-created', (_event, contents) => {
+  if (contents.getType() !== 'webview') return
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  contents.on('will-navigate', (e) => e.preventDefault())
+  contents.on('will-redirect', (e) => e.preventDefault())
+})
+
 app.whenReady().then(() => {
   nativeTheme.themeSource = 'system'
   loadRecent()
   Menu.setApplicationMenu(buildMenu())
+
+  session.fromPartition(HTML_VIEW_PARTITION).webRequest.onBeforeRequest((details, callback) => {
+    callback({ cancel: !/^(file|data|blob|about):/i.test(details.url) })
+  })
 
   if (pendingOpenPaths.length > 0) {
     pendingOpenPaths.splice(0).forEach((p) => createWindow(p))
