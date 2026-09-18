@@ -4,9 +4,15 @@ import EmptyState from './components/EmptyState'
 import MarkdownView from './components/MarkdownView'
 import PdfView from './components/PdfView'
 import HtmlView from './components/HtmlView'
-import Sidebar, { type Heading } from './components/Sidebar'
+import Sidebar, {
+  type Heading,
+  MIN_SIDEBAR_WIDTH,
+  MAX_SIDEBAR_WIDTH
+} from './components/Sidebar'
 
 const SIDEBAR_PREF_KEY = 'marky.sidebarOpen'
+const SIDEBAR_WIDTH_KEY = 'marky.sidebarWidth'
+const DEFAULT_SIDEBAR_WIDTH = 224
 
 interface OpenFile {
   path: string
@@ -39,6 +45,10 @@ export default function App(): JSX.Element {
   const [dragging, setDragging] = useState(false)
   const [headings, setHeadings] = useState<Heading[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem(SIDEBAR_PREF_KEY) !== '0')
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))
+    return saved >= MIN_SIDEBAR_WIDTH && saved <= MAX_SIDEBAR_WIDTH ? saved : DEFAULT_SIDEBAR_WIDTH
+  })
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const applyTheme = useCallback((isDark: boolean) => {
@@ -106,6 +116,10 @@ export default function App(): JSX.Element {
     localStorage.setItem(SIDEBAR_PREF_KEY, sidebarOpen ? '1' : '0')
   }, [sidebarOpen])
 
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth))
+  }, [sidebarWidth])
+
   const toggleTheme = useCallback(() => void window.marky.toggleTheme(), [])
   const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), [])
   const handleHeadings = useCallback((h: Heading[]) => setHeadings(h), [])
@@ -133,7 +147,14 @@ export default function App(): JSX.Element {
       onDrop={onDrop}
     >
       {showSidebar && (
-        <Sidebar headings={headings} onSelect={scrollToHeading} onToggle={toggleSidebar} isMac={isMac} />
+        <Sidebar
+          headings={headings}
+          onSelect={scrollToHeading}
+          onToggle={toggleSidebar}
+          isMac={isMac}
+          width={sidebarWidth}
+          onWidthChange={setSidebarWidth}
+        />
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
