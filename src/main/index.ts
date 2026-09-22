@@ -91,6 +91,21 @@ function watchFile(win: BrowserWindow, filePath: string): void {
 
 // ─── opening files ──────────────────────────────────────────────────────────
 
+/**
+ * Windows whose renderer has registered its IPC listeners, and files waiting
+ * for that to happen. `webContents.send` drops messages that arrive before
+ * the renderer is listening, which is why a cold-start open used to land on
+ * the home screen until the file was opened a second time.
+ */
+const readyWindows = new Set<number>()
+const pendingFiles = new Map<number, string>()
+
+/** Open a file in a window now, or as soon as its renderer is listening. */
+function openInWindow(win: BrowserWindow, filePath: string): void {
+  if (readyWindows.has(win.id)) void loadFile(win, filePath)
+  else pendingFiles.set(win.id, filePath)
+}
+
 async function loadFile(win: BrowserWindow, filePath: string): Promise<void> {
   try {
     if (PDF_EXT.test(filePath)) {
@@ -179,15 +194,16 @@ function createWindow(filePath?: string): BrowserWindow {
     }
   })
 
-  win.once('ready-to-show', () => {
-    win.show()
-    if (filePath) void loadFile(win, filePath)
-  })
+  if (filePath) pendingFiles.set(win.id, filePath)
+
+  win.once('ready-to-show', () => win.show())
 
   win.on('closed', () => {
     void watchers.get(win.id)?.close()
     watchers.delete(win.id)
     openDocs.delete(win.id)
+    readyWindows.delete(win.id)
+    pendingFiles.delete(win.id)
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -223,13 +239,30 @@ function createWindow(filePath?: string): BrowserWindow {
   return win
 }
 
+/** A window showing the home screen with no document on the way to it. */
+function emptyWindow(): BrowserWindow | undefined {
+  const isEmpty = (w: BrowserWindow): boolean =>
+    !openDocs.has(w.id) && !pendingFiles.has(w.id)
+  const focused = BrowserWindow.getFocusedWindow()
+  if (focused && isEmpty(focused)) return focused
+  // On a cold start nothing is focused yet, so also take the window that
+  // whenReady() just created — otherwise it stays behind on the home screen.
+  return BrowserWindow.getAllWindows().find(isEmpty)
+}
+
 /** Open a file coming from the OS (Finder / CLI) — one window per document. */
 function openExternalFile(filePath: string): void {
-  const focused = BrowserWindow.getFocusedWindow()
-  const focusedIsEmpty = focused && !openDocs.has(focused.id)
-  // reuse a brand-new empty window if that's all we have, else spawn one
-  if (focused && focusedIsEmpty) void loadFile(focused, filePath)
-  else createWindow(filePath)
+  const reusable = emptyWindow()
+  if (!reusable) {
+    createWindow(filePath)
+    return
+  }
+  // The reused window may be minimised or sitting behind another one; the
+  // file has to end up somewhere the user can actually see it.
+  if (reusable.isMinimized()) reusable.restore()
+  reusable.show()
+  reusable.focus()
+  openInWindow(reusable, filePath)
 }
 
 // macOS: opened via Finder / "open with"
@@ -368,6 +401,19 @@ app.whenReady().then(() => {
   } else {
     createWindow()
   }
+
+  // The renderer calls this once its IPC listeners are attached; anything
+  // queued for that window (Finder / CLI launch) goes out now.
+  ipcMain.handle('renderer:ready', (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (!win) return
+    readyWindows.add(win.id)
+    const queued = pendingFiles.get(win.id)
+    if (queued !== undefined) {
+      pendingFiles.delete(win.id)
+      void loadFile(win, queued)
+    }
+  })
 
   ipcMain.handle('file:open', async (e, p: string) => {
     const win = BrowserWindow.fromWebContents(e.sender)

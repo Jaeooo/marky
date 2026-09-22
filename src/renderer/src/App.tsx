@@ -87,6 +87,9 @@ export default function App(): JSX.Element {
       setPdf(null)
       setHeadings([])
     })
+    // Listeners are attached now, so it is safe for main to send a file that
+    // was queued by a Finder / CLI launch.
+    void window.marky.notifyReady()
     return () => {
       offOpened()
       offChanged()

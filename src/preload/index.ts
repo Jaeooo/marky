@@ -29,6 +29,9 @@ const api = {
   getTheme: (): Promise<boolean> => ipcRenderer.invoke('theme:get'),
   toggleTheme: (): Promise<boolean> => ipcRenderer.invoke('theme:toggle'),
 
+  /** Tell main this window's IPC listeners are attached (see renderer:ready). */
+  notifyReady: (): Promise<void> => ipcRenderer.invoke('renderer:ready'),
+
   listRecent: (): Promise<RecentEntry[]> => ipcRenderer.invoke('recent:list'),
   openRecent: (path: string): Promise<void> => ipcRenderer.invoke('recent:open', path),
   clearRecent: (): Promise<void> => ipcRenderer.invoke('recent:clear'),
