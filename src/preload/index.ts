@@ -32,8 +32,12 @@ const api = {
   /** Tell main this window's IPC listeners are attached (see renderer:ready). */
   notifyReady: (): Promise<void> => ipcRenderer.invoke('renderer:ready'),
 
+  /** Open the native file picker for this window (same dialog as File → Open). */
+  openDialog: (): Promise<void> => ipcRenderer.invoke('dialog:open'),
+
   listRecent: (): Promise<RecentEntry[]> => ipcRenderer.invoke('recent:list'),
   openRecent: (path: string): Promise<void> => ipcRenderer.invoke('recent:open', path),
+  removeRecent: (path: string): Promise<void> => ipcRenderer.invoke('recent:remove', path),
   clearRecent: (): Promise<void> => ipcRenderer.invoke('recent:clear'),
   onRecentUpdated: (cb: (entries: RecentEntry[]) => void): Unsubscribe => {
     const listener = (_e: unknown, entries: RecentEntry[]): void => cb(entries)

@@ -162,7 +162,7 @@ export default function App(): JSX.Element {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Toolbar
-          title={title}
+          title={file || pdf || html ? title : ''}
           dark={dark}
           isMac={isMac}
           onToggleTheme={toggleTheme}

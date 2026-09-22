@@ -71,6 +71,12 @@ function addRecent(filePath: string): void {
   broadcast('recent:updated', recent)
 }
 
+function removeRecent(filePath: string): void {
+  recent = recent.filter((e) => e.path !== filePath)
+  persistRecent()
+  broadcast('recent:updated', recent)
+}
+
 function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send(channel, payload)
 }
@@ -420,11 +426,17 @@ app.whenReady().then(() => {
     if (win) await loadFile(win, p)
   })
 
+  ipcMain.handle('dialog:open', async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (win) await openFileDialog(win)
+  })
+
   ipcMain.handle('recent:list', () => listRecent())
   ipcMain.handle('recent:open', (e, p: string) => {
     const win = BrowserWindow.fromWebContents(e.sender)
     return win ? loadFile(win, p) : undefined
   })
+  ipcMain.handle('recent:remove', (_e, p: string) => removeRecent(p))
   ipcMain.handle('recent:clear', () => {
     recent = []
     persistRecent()
