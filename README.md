@@ -34,6 +34,27 @@ npm run build:win    # dist/ 에 nsis 설치 파일
 > 아이콘: `build/icon.icns` (mac), `build/icon.ico` (win), `build/icon.png` (1024²) 를
 > 넣으면 electron-builder 가 자동으로 사용한다. 없으면 Electron 기본 아이콘.
 
+## 릴리스 (자동 업데이트)
+
+자동 업데이트는 GitHub Releases 피드를 쓴다. 공개 저장소여야 앱에 토큰 없이
+업데이트를 내려받을 수 있다.
+
+```bash
+# package.json 의 version 을 올린 뒤
+GH_TOKEN=$(gh auth token) npm run release:mac
+GH_TOKEN=$(gh auth token) npm run release:win
+```
+
+`dmg`/`zip`/`nsis` 산출물과 `latest-mac.yml`·`latest.yml` 피드가 해당 버전의
+릴리스에 올라간다. 앱은 실행 4초 뒤 조용히 확인하고, 새 버전이 있으면
+백그라운드로 받은 다음 "지금 다시 시작" 여부를 묻는다. 메뉴의
+`Marky → 업데이트 확인…`(Windows 는 `Help`)으로 직접 확인할 수도 있다.
+개발 빌드(`npm run dev`)에서는 확인하지 않는다.
+
+macOS 자동 업데이트는 코드 서명이 필요하다. 현재는 Apple Development
+인증서로 서명하므로 서명 주체가 같은 내 기기에서는 교체가 되지만, 다른 사람에게
+배포하려면 Developer ID Application 인증서와 공증(notarization)이 필요하다.
+
 ## 구조
 
 ```
@@ -64,4 +85,4 @@ npm run format
 - [ ] 문서 내 검색 (⌘F)
 - [ ] 코드 하이라이트를 Shiki 로 교체 (VS Code 테마 정확도)
 - [ ] 인쇄 / PDF 내보내기
-- [ ] electron-updater 자동 업데이트 (GitHub Releases)
+- [x] electron-updater 자동 업데이트 (GitHub Releases)

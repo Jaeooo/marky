@@ -73,4 +73,7 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
 
-publish: null
+publish:
+  provider: github
+  owner: Jaeooo
+  repo: marky

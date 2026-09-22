@@ -5,6 +5,7 @@ import { readFile } from 'fs/promises'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { pathToFileURL } from 'url'
 import { watch, type FSWatcher } from 'chokidar'
+import { check as checkForUpdates, initUpdater } from './updater'
 
 const PDF_EXT = /\.pdf$/i
 const HTML_EXT = /\.html?$/i
@@ -310,6 +311,10 @@ function buildMenu(): Menu {
             label: app.name,
             submenu: [
               { role: 'about' as const },
+              {
+                label: '업데이트 확인…',
+                click: () => void checkForUpdates(true)
+              },
               { type: 'separator' as const },
               { role: 'hide' as const },
               { role: 'hideOthers' as const },
@@ -376,7 +381,20 @@ function buildMenu(): Menu {
       submenu: isMac
         ? [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }]
         : [{ role: 'minimize' }, { role: 'close' }]
-    }
+    },
+    ...(isMac
+      ? []
+      : [
+          {
+            label: 'Help',
+            submenu: [
+              {
+                label: '업데이트 확인…',
+                click: (): void => void checkForUpdates(true)
+              }
+            ]
+          }
+        ])
   ]
 
   return Menu.buildFromTemplate(template)
@@ -397,6 +415,8 @@ app.whenReady().then(() => {
   nativeTheme.themeSource = 'system'
   loadRecent()
   Menu.setApplicationMenu(buildMenu())
+
+  initUpdater()
 
   session.fromPartition(HTML_VIEW_PARTITION).webRequest.onBeforeRequest((details, callback) => {
     callback({ cancel: !/^(file|data|blob|about):/i.test(details.url) })

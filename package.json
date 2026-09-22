@@ -16,7 +16,9 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:mac": "npm run build && electron-builder --mac",
-    "build:win": "npm run build && electron-builder --win"
+    "build:win": "npm run build && electron-builder --win",
+    "release:mac": "npm run build && electron-builder --mac --publish always",
+    "release:win": "npm run build && electron-builder --win --publish always"
   },
   "dependencies": {
     "chokidar": "^4.0.3",
