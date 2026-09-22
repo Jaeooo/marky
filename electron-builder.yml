@@ -77,3 +77,5 @@ publish:
   provider: github
   owner: Jaeooo
   repo: marky
+  # Drafts are invisible to the update feed, so publish straight away.
+  releaseType: release
